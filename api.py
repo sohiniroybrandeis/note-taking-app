@@ -5,18 +5,19 @@ from flask import Flask, request
 from markupsafe import escape
 from pydantic import BaseModel
 import os
+from notes import Note, NoteBook
 
 app = FastAPI()
-notes = [] #storing notes
+nb = NoteBook()
+
 
 class Note(BaseModel):
     name: str
     content: str
 
-
 @app.post("/add", status_code=201)
 async def create_note(note: Note):
-    notes.append(note)
+    nb.add(note.name, note.content)
     return ("You have successfully added a note!")
 
 
@@ -32,27 +33,24 @@ def read_root():
         }
     }
 
-@app.get("/list", response_model=list[Note])
+@app.get("/list", response_model=[])
 async def get_all_notes():
-    return notes
+    return nb.notes
 
 
 @app.get("/find")
 # dictionary including all notes that match the search term
 async def find_note(term: str):
-    matched_notes = []
     if term:
-        for note in notes:
-            if term.lower() in (note.content).lower():
-                matched_notes.append(note.name)
+        matched_notes = nb.search(term)
     return {"term": term, "matched_notes": matched_notes}
 
 
-@app.get("/note/{title}")
-# retrieves the text from a specific note.
+@app.get("/note/{title}", response_model=str)  # Ensure correct serialization
 async def note_text(title: str):
-    if title:
-        for note in notes:
-            if title == (note.name):
-                return note.content
+    note = nb.retrieve_note(title)
+    if note:
+        return note.content  # Return full Note object (FastAPI will convert it to JSON)
+    return "Error: Note not found"  # Handle missing notes
+
 
